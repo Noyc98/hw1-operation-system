@@ -5,12 +5,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
 #define BUFFER_SIZE 100
 
-typedef struct History {
+typedef struct History_list{
     char* name;
-    struct History* next;
+    struct History_list* next;
     int index;
 } History;
 
@@ -54,6 +53,7 @@ int main(void)
         // split str into tokens
         commandCopy = command;
         pch = strtok(command, delimiters);
+        printf("name: %s", command);
         while (pch)
         {
             if (strncmp(pch, "&", 1) != 0)// if you are not & so you  are an argument
@@ -70,34 +70,30 @@ int main(void)
         
         args[argsIndex] = (char*)NULL; // marks the end of args Array
         
+        temp = setNewNode(commandCopy);
+        insertHistory(&head, temp);
+
         check = strncmp(command, "history", 7);
-        printf("check: %d\n", check);
         if (check == 0) /* if the user input "history", print the previous order */
+        {            
             printHistory(head);
+        }
+            
 
         // execute process
         pid = fork();
         if (pid == 0)
         {
-            if (check != 0) 
+            if ((execvp(command, args) < 0) && check)
             {
-                if (execvp(command, args) < 0)
-                {
-                    perror("error");
-                    exit(1);
-                }
-
-                if (head == NULL)
-                {
-                    head = tail;
-                }
-
-                temp = setNewNode(commandCopy);
-                insertHistory(&tail, temp);
+                printf("error1\n");
+                perror("error");
+                exit(1);
             }
         }
         else if (pid < 0)
         {
+            printf("error2\n");
             // forking child process failed
             perror("error");
             exit(1);
@@ -112,6 +108,7 @@ int main(void)
             isBackround = 0;
             argsIndex = 0;
         }
+        
     }
     
     return 0;
@@ -121,7 +118,17 @@ int main(void)
 History* setNewNode(char* name)
 {
     History* newNode = (History*)malloc(sizeof(History));
+    if (newNode == NULL)
+    {
+        perror("error");
+        exit(1);
+    }
     newNode->name = (char*)malloc(strlen(name) * sizeof(char));
+    if (newNode->name == NULL)
+    {
+        perror("error");
+        exit(1);
+    }
     strcpy(newNode->name, name);
     newNode->next = NULL;
     return newNode;
