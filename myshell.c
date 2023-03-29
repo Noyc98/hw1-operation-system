@@ -13,11 +13,15 @@ typedef struct History_list{
     int index;
 } History;
 
-History* setNewNode(char* name);
+History* setNewNode(char* name, int index);
 void insertHistory(History** link, History* newNode);
 void printHistory(History* head);
 void freeHistory(History* command);
 void freeCommand(History* command);
+char* reDoCommand(History* head, int index);
+int checkCommand(char* command, int histoyFlag);
+int getNumber(char* word);
+int isDigit(int num);
 
 int main(void)
 {
@@ -26,11 +30,9 @@ int main(void)
     char command[BUFFER_SIZE];
     
     History* head = NULL;
-    History* tail = NULL;
     const char delimiters[3] = " \n";
     char* pch = NULL;
     int argsIndex = 0;
-    int commandIndex = 0;
     char* args[BUFFER_SIZE];
     int isBackround = 0;
     pid_t pid = 0;
@@ -38,6 +40,9 @@ int main(void)
     History* temp;
     int check = 0;
     char* commandCopy;
+    int counter = 0;
+    int histoyFlag = 0;
+    char* errorCheck;
 
     while (1)
     {
@@ -49,13 +54,30 @@ int main(void)
             break;
         }
         //=======================================//
-        
+
+        check = checkCommand(command, histoyFlag);
+        printf("%d\n", check);
+        if (check != -1)
+        {
+            errorCheck = reDoCommand(head, check);
+            if (strcmp(errorCheck, "error"))
+            {
+                strcpy(command, reDoCommand(head, check));
+            }
+        }
+
+        pch = NULL;
+        isBackround = 0;
+        argsIndex = 0;
+        check = 0;
+
         // split str into tokens
-        commandCopy = command;
+        commandCopy = (char*)malloc(strlen(command) * sizeof(char));
+        strcpy(commandCopy, command);
         pch = strtok(command, delimiters);
-        printf("name: %s", command);
         while (pch)
         {
+            
             if (strncmp(pch, "&", 1) != 0)// if you are not & so you  are an argument
             {
                 args[argsIndex] = pch;
@@ -70,30 +92,33 @@ int main(void)
         
         args[argsIndex] = (char*)NULL; // marks the end of args Array
         
-        temp = setNewNode(commandCopy);
+        counter++;
+        temp = setNewNode(commandCopy,counter);
         insertHistory(&head, temp);
 
         check = strncmp(command, "history", 7);
         if (check == 0) /* if the user input "history", print the previous order */
         {            
             printHistory(head);
+            histoyFlag = 1;
         }
             
+        printf("command exe: %s", command);
+
 
         // execute process
         pid = fork();
         if (pid == 0)
         {
+            printf("command exe: %s", command);
             if ((execvp(command, args) < 0) && check)
             {
-                printf("error1\n");
                 perror("error");
                 exit(1);
             }
         }
         else if (pid < 0)
         {
-            printf("error2\n");
             // forking child process failed
             perror("error");
             exit(1);
@@ -114,8 +139,74 @@ int main(void)
     return 0;
 }
 
+int isDigit(int num)
+{
+    if ((num >= '0') && (num <= '9')) 
+        return 1;
+    return 0;
+}
 
-History* setNewNode(char* name)
+int getNumber(char* word)
+{
+    char* temp;
+    int newNum = 0;
+
+    for (int i = 1; i < strlen(word); i++)
+    {
+        if (!isDigit(word[i]))
+        {
+            if (i != 1)
+            {
+                strncpy(temp, word + 1, i);
+                newNum = atoi(temp);
+                return newNum;
+            }
+        }
+    }
+
+    return -1;
+}
+
+int checkCommand(char* command, int histoyFlag)
+{
+    int number = 0;
+    char* retVal;
+
+    if (histoyFlag && command[0] == '!')
+    {
+        if (command[1] == '!')
+        {
+            // execute !1
+            return 1;
+        }
+        else{
+            
+            return getNumber(command);
+            
+        }
+
+    }
+    return -1;
+}
+
+char* reDoCommand(History* head, int index)
+{
+    char* error = "error";
+    while (head != NULL)
+    {
+        if (head->index == index)
+        {
+            return head->name;
+        }
+        
+        head = head->next;
+    }
+
+    return error;
+}
+
+
+History* setNewNode(char* name, int index)
 {
     History* newNode = (History*)malloc(sizeof(History));
     if (newNode == NULL)
@@ -123,14 +214,18 @@ History* setNewNode(char* name)
         perror("error");
         exit(1);
     }
+
     newNode->name = (char*)malloc(strlen(name) * sizeof(char));
+    
     if (newNode->name == NULL)
     {
         perror("error");
         exit(1);
     }
+    
     strcpy(newNode->name, name);
     newNode->next = NULL;
+    newNode->index = index;
     return newNode;
 }
 
@@ -146,7 +241,7 @@ void printHistory(History* head)
 {
     while (head != NULL)
     {
-        printf("%s\n", head->name);
+        printf("%d %s\n",head->index, head->name);
         head = head->next;
     }
 }
