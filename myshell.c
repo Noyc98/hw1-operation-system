@@ -17,7 +17,6 @@ History* setNewNode(char* name, int index);
 void insertHistory(History** link, History* newNode);
 void printHistory(History* head);
 void freeHistory(History* command);
-void freeCommand(History* command);
 char* reDoCommand(History* head, int index);
 int checkCommand(char* command, int histoyFlag);
 int getNumber(char* word);
@@ -56,7 +55,6 @@ int main(void)
         //=======================================//
 
         check = checkCommand(command, histoyFlag);
-        printf("%d\n", check);
         if (check != -1)
         {
             errorCheck = reDoCommand(head, check);
@@ -93,25 +91,21 @@ int main(void)
         args[argsIndex] = (char*)NULL; // marks the end of args Array
         
         counter++;
+
         temp = setNewNode(commandCopy,counter);
         insertHistory(&head, temp);
 
-        check = strncmp(command, "history", 7);
-        if (check == 0) /* if the user input "history", print the previous order */
+        if (strncmp(command, "history", 7) == 0) /* if the user input "history", print the previous order */
         {            
             printHistory(head);
             histoyFlag = 1;
         }
-            
-        printf("command exe: %s", command);
-
 
         // execute process
         pid = fork();
         if (pid == 0)
         {
-            printf("command exe: %s", command);
-            if ((execvp(command, args) < 0) && check)
+            if ((execvp(command, args) < 0) && (strncmp(command, "history", 7)))
             {
                 perror("error");
                 exit(1);
@@ -169,9 +163,7 @@ int getNumber(char* word)
 
 int checkCommand(char* command, int histoyFlag)
 {
-    int number = 0;
-    char* retVal;
-
+    int temp;
     if (histoyFlag && command[0] == '!')
     {
         if (command[1] == '!')
@@ -180,8 +172,8 @@ int checkCommand(char* command, int histoyFlag)
             return 1;
         }
         else{
-            
-            return getNumber(command);
+            temp = getNumber(command);            
+            return temp;
             
         }
 
@@ -244,13 +236,6 @@ void printHistory(History* head)
         printf("%d %s\n",head->index, head->name);
         head = head->next;
     }
-}
-
-void freeCommand(History* command)
-{
-    free(command->name);
-    free(command);
-    return;
 }
 
 void freeHistory(History* command) {
