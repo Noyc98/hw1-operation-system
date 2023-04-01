@@ -141,6 +141,7 @@ int main(void)
         }
     }
 
+    freeHistory(head);
     return 0;
 }
 
