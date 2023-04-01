@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #define BUFFER_SIZE 100
+#define LAST_COMMAND -2
 
 typedef struct History_list{
     char* name;
@@ -14,11 +15,11 @@ typedef struct History_list{
 } History;
 
 History* setNewNode(char* name, int index);
-void insertHistory(History** link, History* newNode);
+void insertHistory(History** head, History* newNode);
 void printHistory(History* head);
 void freeHistory(History* command);
 char* reDoCommand(History* head, int index);
-int checkCommand(char* command, int histoyFlag);
+int checkCommand(char* command, int historyFlag);
 int getNumber(char* word);
 int isDigit(int num);
 
@@ -27,21 +28,22 @@ int main(void)
     close(2);
     dup(1);
     char command[BUFFER_SIZE];
-    
-    History* head = NULL;
-    const char delimiters[3] = " \n";
-    char* pch = NULL;
-    int argsIndex = 0;
-    char* args[BUFFER_SIZE];
-    int isBackround = 0;
-    pid_t pid = 0;
-    int wstatus;
+
     History* temp;
-    int check = 0;
+    History* head = NULL;
+    const char delimiters[8] = " \r\t\n";
+    char* pch = NULL;
+    char* args[BUFFER_SIZE];
     char* commandCopy;
-    int counter = 0;
-    int histoyFlag = 0;
     char* errorCheck;
+    int argsIndex = 0;
+    int isBackground = 0;
+    int wstatus;
+    int check = 0;
+    int counter = 0;
+    int historyFlag = 0;
+    int skip = 0;
+    pid_t pid = 0;
 
     while (1)
     {
@@ -54,150 +56,162 @@ int main(void)
         }
         //=======================================//
 
-        check = checkCommand(command, histoyFlag);
+        skip = 1;
+        check = checkCommand(command, historyFlag);
+       // printf("check=%d\n", check);
         if (check != -1)
         {
             errorCheck = reDoCommand(head, check);
-            if (strcmp(errorCheck, "error"))
+           // printf("errorCheck=%s\n", errorCheck);
+
+            skip = strcmp(errorCheck, "error");
+           // printf("errorCheck2=%s\n", errorCheck);
+            if(skip != 0)
             {
-                strcpy(command, reDoCommand(head, check));
+                strcpy(command, errorCheck);
+            }
+            else
+            {
+                printf("No History\n");
             }
         }
 
         pch = NULL;
-        isBackround = 0;
+        isBackground = 0;
         argsIndex = 0;
         check = 0;
-
-        // split str into tokens
-        commandCopy = (char*)malloc(strlen(command) * sizeof(char));
-        strcpy(commandCopy, command);
-        pch = strtok(command, delimiters);
-        while (pch)
+        // printf("skip=%d\n", skip);
+        // printf("command=%s\n", command);
+        if(skip != 0)
         {
-            
-            if (strncmp(pch, "&", 1) != 0)// if you are not & so you  are an argument
+            // split str into tokens
+            commandCopy = (char*)malloc(strlen(command) * sizeof(char));
+            strcpy(commandCopy, command);
+            pch = strtok(command, delimiters);
+            while (pch)
             {
-                args[argsIndex] = pch;
-                argsIndex++;
+                if (strncmp(pch, "&", 1) != 0) // if you are not & so you are an argument
+                {
+                    args[argsIndex] = pch;
+                    argsIndex++;
+                }
+                else {
+                    isBackground = 1;
+                }
+
+                pch = strtok(NULL, delimiters);
             }
-            else {
-                isBackround = 1;
-            }
+            args[argsIndex] = (char*)NULL;  // marks the end of args Array
+            counter++;
+            historyFlag = 1;
+            temp = setNewNode(commandCopy,counter);
+            insertHistory(&head, temp);
 
-            pch = strtok(NULL, delimiters);
-        }
-        
-        args[argsIndex] = (char*)NULL; // marks the end of args Array
-        
-        counter++;
-
-        temp = setNewNode(commandCopy,counter);
-        insertHistory(&head, temp);
-
-        if (strncmp(command, "history", 7) == 0) /* if the user input "history", print the previous order */
-        {            
-            printHistory(head);
-            histoyFlag = 1;
-        }
-
-        // execute process
-        pid = fork();
-        if (pid == 0)
-        {
-            if ((execvp(command, args) < 0) && (strncmp(command, "history", 7)))
+            if (strncmp(command, "history", 7) == 0) // if the user input "history", print the previous order
             {
-                perror("error");
-                exit(1);
+                printHistory(head);
+            }
+            else{// execute process
+                pid = fork();
+                if (pid == 0)
+                {
+                    if ((execvp(command, args) < 0))
+                    {
+                        perror("error");
+                        exit(1);
+                    }
+                }
+                else if (pid < 0)
+                {
+                    // forking child process failed
+                    perror("error");
+                    exit(1);
+                }
+                else
+                {
+                    // check if background command
+                    if (isBackground == 0)
+                    {
+                        waitpid(pid, &wstatus, WUNTRACED);
+                    }
+                    isBackground = 0;
+                    argsIndex = 0;
+                }
             }
         }
-        else if (pid < 0)
-        {
-            // forking child process failed
-            perror("error");
-            exit(1);
-        }
-        else
-        {
-            // check if backround command
-            if (isBackround == 0)
-            {
-                waitpid(pid, &wstatus, WUNTRACED);
-            }
-            isBackround = 0;
-            argsIndex = 0;
-        }
-        
     }
-    
+
     return 0;
 }
 
+// func to check if digit
 int isDigit(int num)
 {
-    if ((num >= '0') && (num <= '9')) 
-        return 1;
+    if ((num >= '0') && (num <= '9'))
+        return 1;     // is digit
     return 0;
 }
 
+// func to check if number (int)
 int getNumber(char* word)
 {
     char* temp;
-    int newNum = 0;
+    int newNum = -1;
 
     for (int i = 1; i < strlen(word); i++)
     {
         if (!isDigit(word[i]))
         {
-            if (i != 1)
-            {
-                strncpy(temp, word + 1, i);
-                newNum = atoi(temp);
-                return newNum;
-            }
+            break;                                         //not a number = stop
+        }
+        else
+        {
+            strncpy(temp, word + 1, i); // copy the string number only
+            newNum = atoi(temp);                     // convert to int number
         }
     }
 
-    return -1;
+    return newNum;
 }
 
-int checkCommand(char* command, int histoyFlag)
+//func to check command type
+int checkCommand(char* command, int historyFlag)
 {
     int temp;
-    if (histoyFlag && command[0] == '!')
+    if (historyFlag && command[0] == '!')
     {
-        if (command[1] == '!')
+        if (command[1] == '!')              // double "!!"
         {
-            // execute !1
-            return 1;
+            // execute last command input
+            return LAST_COMMAND;
         }
         else{
-            temp = getNumber(command);            
+            temp = getNumber(command);      // command number to execute
             return temp;
-            
         }
-
     }
-    return -1;
+    return -1;                                   // regular command (no "!")
 }
 
+// re execution of the command
 char* reDoCommand(History* head, int index)
 {
-    char* error = "error";
     while (head != NULL)
     {
-        if (head->index == index)
+        if(index == LAST_COMMAND)
         {
-            return head->name;
+            return head->name;                  // last command in History
         }
-        
+        else if(head->index == index)
+        {
+            return head->name;                  // wanted command
+        }
         head = head->next;
     }
-
-    return error;
+    return "error";                               // no such command in History
 }
 
-
+// set a new command node
 History* setNewNode(char* name, int index)
 {
     History* newNode = (History*)malloc(sizeof(History));
@@ -206,34 +220,33 @@ History* setNewNode(char* name, int index)
         perror("error");
         exit(1);
     }
-
     newNode->name = (char*)malloc(strlen(name) * sizeof(char));
-    
+
     if (newNode->name == NULL)
     {
         perror("error");
         exit(1);
     }
-    
+
     strcpy(newNode->name, name);
     newNode->next = NULL;
     newNode->index = index;
     return newNode;
 }
 
-// insert new command
-void insertHistory(History** tail, History* newNode)
+// insert new command to History
+void insertHistory(History** head, History* newNode)
 {
-    newNode->next = *tail;
-    *tail = newNode;
+    newNode->next = *head;
+    *head = newNode;
 }
 
-// print list of commands
+// print list of previous commands
 void printHistory(History* head)
 {
     while (head != NULL)
     {
-        printf("%d %s\n",head->index, head->name);
+        printf("%d \t %s",head->index, head->name);
         head = head->next;
     }
 }
