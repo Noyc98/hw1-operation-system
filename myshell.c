@@ -19,7 +19,7 @@ void insertHistory(History** head, History* newNode);
 void printHistory(History* head);
 void freeHistory(History* command);
 char* reDoCommand(History* head, int index);
-int checkCommand(char* command, int historyFlag);
+int checkCommand(char* command);
 int getNumber(char* word);
 int isDigit(char num);
 
@@ -45,7 +45,6 @@ int main(void)
     int historyFlag = 0;
     int skip = 0;
     pid_t pid = 0;
-    int j = 0;
 
     while (1)
     {
@@ -57,12 +56,14 @@ int main(void)
             break;
         }
         //=======================================//
+        // skip execution or not
         skip = 1;
-        check = checkCommand(command, historyFlag);
+        // check if command has '!' and validiation
+        check = checkCommand(command); 
         if (check != -1 && check != 0)
         {
+            // checking if valid command to execute again
             errorCheck = reDoCommand(head, check);
-
             skip = strcmp(errorCheck, "error");
             if (skip != 0)
             {
@@ -70,6 +71,7 @@ int main(void)
             }
             else
             {
+                // the command number is bigger than history's size
                 printf("No History\n");
             }
         }
@@ -83,9 +85,9 @@ int main(void)
         {
             // split str into tokens
             commandCopy = (char*)malloc(strlen(command) * sizeof(char));
-            strcpy(commandCopy, command);
+            strcpy(commandCopy, command);   // saving a copy of the full command
             pch = strtok(command, delimiters);
-            execute = pch;
+            execute = pch; // save command name to execute
             while (pch)
             {
                 if (strncmp(pch, "&", 1) != 0) // if you are not & so you are an argument
@@ -101,7 +103,6 @@ int main(void)
             }
             args[argsIndex] = (char*)NULL;  // marks the end of args Array
             counter++;
-            historyFlag = 1;
             temp = setNewNode(commandCopy, counter);
             insertHistory(&head, temp);
 
@@ -167,22 +168,26 @@ int getNumber(char* word)
 }
 
 //func to check command type
-int checkCommand(char* command, int historyFlag)
+int checkCommand(char* command)
 {
     int temp;
-    if (historyFlag && command[0] == '!')
+    if (command[0] == '!')
     {
-        if (command[1] == '!')              // double "!!"
+        // double "!!"
+        if (command[1] == '!') 
         {
             // execute last command input
             return LAST_COMMAND;
         }
         else {
-            temp = getNumber(command);      // command number to execute
+            // command number to execute
+            temp = getNumber(command);      
             return temp;
         }
     }
-    return -1;                                   // regular command (no "!")
+
+    // regular command (no "!")
+    return -1;                                  
 }
 
 // re execution of the command
@@ -192,15 +197,18 @@ char* reDoCommand(History* head, int index)
     {
         if (index == LAST_COMMAND)
         {
-            return head->name;                  // last command in History
+            // last command in History
+            return head->name;                  
         }
         else if (head->index == index)
         {
-            return head->name;                  // wanted command
+            // wanted command
+            return head->name;                  
         }
         head = head->next;
     }
-    return "error";                               // no such command in History
+    // no such command in History
+    return "error";                               
 }
 
 // set a new command node
@@ -243,6 +251,7 @@ void printHistory(History* head)
     }
 }
 
+// free malloc of history
 void freeHistory(History* command) {
 
     if (command == NULL)
