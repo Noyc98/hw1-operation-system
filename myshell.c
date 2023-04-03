@@ -8,7 +8,7 @@
 #define BUFFER_SIZE 100
 #define LAST_COMMAND -2
 
-typedef struct History_list{
+typedef struct History_list {
     char* name;
     struct History_list* next;
     int index;
@@ -21,7 +21,7 @@ void freeHistory(History* command);
 char* reDoCommand(History* head, int index);
 int checkCommand(char* command, int historyFlag);
 int getNumber(char* word);
-int isDigit(int num);
+int isDigit(char num);
 
 int main(void)
 {
@@ -35,6 +35,7 @@ int main(void)
     char* pch = NULL;
     char* args[BUFFER_SIZE];
     char* commandCopy;
+    char* execute;
     char* errorCheck;
     int argsIndex = 0;
     int isBackground = 0;
@@ -44,6 +45,7 @@ int main(void)
     int historyFlag = 0;
     int skip = 0;
     pid_t pid = 0;
+    int j = 0;
 
     while (1)
     {
@@ -55,18 +57,14 @@ int main(void)
             break;
         }
         //=======================================//
-
         skip = 1;
         check = checkCommand(command, historyFlag);
-       // printf("check=%d\n", check);
-        if (check != -1)
+        if (check != -1 && check != 0)
         {
             errorCheck = reDoCommand(head, check);
-           // printf("errorCheck=%s\n", errorCheck);
 
             skip = strcmp(errorCheck, "error");
-           // printf("errorCheck2=%s\n", errorCheck);
-            if(skip != 0)
+            if (skip != 0)
             {
                 strcpy(command, errorCheck);
             }
@@ -80,14 +78,14 @@ int main(void)
         isBackground = 0;
         argsIndex = 0;
         check = 0;
-        // printf("skip=%d\n", skip);
-        // printf("command=%s\n", command);
-        if(skip != 0)
+ 
+        if (skip != 0)
         {
             // split str into tokens
             commandCopy = (char*)malloc(strlen(command) * sizeof(char));
             strcpy(commandCopy, command);
             pch = strtok(command, delimiters);
+            execute = pch;
             while (pch)
             {
                 if (strncmp(pch, "&", 1) != 0) // if you are not & so you are an argument
@@ -95,7 +93,7 @@ int main(void)
                     args[argsIndex] = pch;
                     argsIndex++;
                 }
-                else {
+                else if(commandCopy[0] != '&') {
                     isBackground = 1;
                 }
 
@@ -104,18 +102,19 @@ int main(void)
             args[argsIndex] = (char*)NULL;  // marks the end of args Array
             counter++;
             historyFlag = 1;
-            temp = setNewNode(commandCopy,counter);
+            temp = setNewNode(commandCopy, counter);
             insertHistory(&head, temp);
 
             if (strncmp(command, "history", 7) == 0) // if the user input "history", print the previous order
             {
                 printHistory(head);
             }
-            else{// execute process
+            // execute process
+            else {
                 pid = fork();
                 if (pid == 0)
                 {
-                    if ((execvp(command, args) < 0))
+                    if ((execvp(execute, args) < 0))
                     {
                         perror("error");
                         exit(1);
@@ -146,7 +145,7 @@ int main(void)
 }
 
 // func to check if digit
-int isDigit(int num)
+int isDigit(char num)
 {
     if ((num >= '0') && (num <= '9'))
         return 1;     // is digit
@@ -159,17 +158,9 @@ int getNumber(char* word)
     char* temp;
     int newNum = -1;
 
-    for (int i = 1; i < strlen(word); i++)
+    if (isDigit(word[1]))
     {
-        if (!isDigit(word[i]))
-        {
-            break;                                         //not a number = stop
-        }
-        else
-        {
-            strncpy(temp, word + 1, i); // copy the string number only
-            newNum = atoi(temp);                     // convert to int number
-        }
+        newNum = atoi(word+1);
     }
 
     return newNum;
@@ -186,7 +177,7 @@ int checkCommand(char* command, int historyFlag)
             // execute last command input
             return LAST_COMMAND;
         }
-        else{
+        else {
             temp = getNumber(command);      // command number to execute
             return temp;
         }
@@ -199,11 +190,11 @@ char* reDoCommand(History* head, int index)
 {
     while (head != NULL)
     {
-        if(index == LAST_COMMAND)
+        if (index == LAST_COMMAND)
         {
             return head->name;                  // last command in History
         }
-        else if(head->index == index)
+        else if (head->index == index)
         {
             return head->name;                  // wanted command
         }
@@ -247,7 +238,7 @@ void printHistory(History* head)
 {
     while (head != NULL)
     {
-        printf("%d \t %s",head->index, head->name);
+        printf("%d \t %s", head->index, head->name);
         head = head->next;
     }
 }
